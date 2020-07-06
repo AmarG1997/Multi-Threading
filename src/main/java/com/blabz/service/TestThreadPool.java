@@ -6,10 +6,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,17 +20,28 @@ import com.blabz.model.LMSModel;
 import com.blabz.repository.LMSRepo;
 
 @Service
-public class CSVOps {
+public class TestThreadPool {
 
 	@Autowired
 	LMSRepo lmsRepo;
 
-	List<LMSModel> result = new ArrayList<>();
-
-	public synchronized List<LMSModel> readCsv(MultipartFile multipartFile) throws IOException {
+	public void saveData(MultipartFile multipartFile) throws IOException, InterruptedException, ExecutionException{
+		List<LMSModel>csvData = threadExample(multipartFile);
+		Executor executor = Executors.newFixedThreadPool(10);
+		System.out.println("csvData is-->"+csvData.size());
+		CompletableFuture<String> future = CompletableFuture.supplyAsync(()->{
+			System.out.println("Thread is-->"+Thread.currentThread().getName());
+			lmsRepo.saveAll(csvData);
+			return "Inserted Data Successfully";
+		},executor);
+		future.get();
+	}
+	
+	public List<LMSModel> threadExample(MultipartFile multipartFile) throws IOException {
+//		System.out.println("in thread exm--->"+multipartFile);
 		BufferedReader br;
-//		List<LMSModel> result = new ArrayList<>();		
 		String line;
+		List<LMSModel> result = new ArrayList<>();
 		InputStream is = multipartFile.getInputStream();
 		br = new BufferedReader(new InputStreamReader(is));
 		while ((line = br.readLine()) != null) {
@@ -83,39 +97,6 @@ public class CSVOps {
 				result.add(lmsModel);
 			}
 		}
-		System.out.println("result is --> " + result.size());
-		threadPool();
 		return result;
 	}
-
-	public void threadPool() {
-		int noOfThreads = 3;
-		ExecutorService executorService = Executors.newFixedThreadPool(noOfThreads);
-		int n = result.size() / noOfThreads;
-		Runnable task1 = () -> {
-			System.out.println("thread is->" + Thread.currentThread().getName());
-			for (int i = 0; i < n; i++) {
-				lmsRepo.save(result.get(i));
-			}
-		};
-		Runnable task2 = () -> {
-			System.out.println("thread is->" + Thread.currentThread().getName());
-			for (int i = n; i < n*2; i++) {
-				lmsRepo.save(result.get(i));
-			}
-
-		};
-		Runnable task3 = () -> {
-			System.out.println("thread is->" + Thread.currentThread().getName());
-			for (int i = n*2; i < result.size()-1; i++) {
-				lmsRepo.save(result.get(i));
-			}
-		};
-
-		executorService.submit(task1);
-		executorService.submit(task2);
-		executorService.submit(task3);
-		executorService.shutdown();
-	}
-
 }

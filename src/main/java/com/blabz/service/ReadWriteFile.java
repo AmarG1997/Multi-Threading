@@ -76,7 +76,6 @@ public class ReadWriteFile {
 			lmsModel.setMouse(data[42]);
 			lmsModel.setTechnology(data[43]);
 			lmsModel.setFileChanged(data[44]);
-			result.add(lmsModel);
 		}
 			lmsRepo.saveAll(result);
 	}
